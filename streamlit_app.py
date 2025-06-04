@@ -3,61 +3,117 @@ import pickle
 import pandas as pd
 import numpy as np
 
-# Import joblib dengan error handling
+# Import joblib with error handling
 try:
     import joblib
 except ImportError:
     from sklearn.externals import joblib
 
-# Debugging: Periksa apakah file ada
-st.write("Memuat model...")
-try:
-    model = joblib.load('random_forest_model_compressed.pkl')
-    st.write("Model dimuat dengan sukses!")
-except Exception as e:
-    st.write(f"Error memuat model: {e}")
+st.title("Debug: Aplikasi Prediksi Kategori Obesitas")
 
-# Load other components with error handling
-try:
-    scaler = pickle.load(open('scaler.pkl', 'rb'))
-    label_encoders = pickle.load(open('label_encoders.pkl', 'rb'))
-    le_target = pickle.load(open('target_encoder.pkl', 'rb'))
-    selected_features = pickle.load(open('selected_features.pkl', 'rb'))
-    st.write("Semua komponen model berhasil dimuat!")
-    
-    # Debug: Show valid values for each categorical column
-    st.write("**Debug: Nilai valid untuk setiap kategori:**")
-    for col, encoder in label_encoders.items():
-        st.write(f"- {col}: {list(encoder.classes_)}")
+# Load model components with detailed debugging
+st.write("## 🔍 Debug: Loading Model Components")
+
+@st.cache_data
+def load_model_components():
+    components = {}
+    try:
+        # Load model
+        components['model'] = joblib.load('random_forest_model_compressed.pkl')
+        st.success("✅ Model loaded successfully!")
         
-except Exception as e:
-    st.error(f"Error memuat komponen model: {e}")
+        # Load scaler
+        components['scaler'] = pickle.load(open('scaler.pkl', 'rb'))
+        st.success("✅ Scaler loaded successfully!")
+        
+        # Load label encoders
+        components['label_encoders'] = pickle.load(open('label_encoders.pkl', 'rb'))
+        st.success("✅ Label encoders loaded successfully!")
+        
+        # Load target encoder
+        components['le_target'] = pickle.load(open('target_encoder.pkl', 'rb'))
+        st.success("✅ Target encoder loaded successfully!")
+        
+        # Load selected features
+        components['selected_features'] = pickle.load(open('selected_features.pkl', 'rb'))
+        st.success("✅ Selected features loaded successfully!")
+        
+        return components
+        
+    except Exception as e:
+        st.error(f"❌ Error loading components: {e}")
+        return None
+
+# Load components
+components = load_model_components()
+
+if components is None:
     st.stop()
 
-st.title("Aplikasi Prediksi Kategori Obesitas")
-st.write("Masukkan data pasien untuk memprediksi kategori obesitas (Normal Weight, Overweight, Obesity).")
+# Display detailed information about label encoders
+st.write("## 📊 Label Encoders Information")
 
-st.header("Input Data Pasien")
+label_encoders = components['label_encoders']
+selected_features = components['selected_features']
 
-# Input fields
+st.write("### Valid values for each categorical column:")
+valid_values = {}
+for col, encoder in label_encoders.items():
+    valid_values[col] = list(encoder.classes_)
+    st.write(f"**{col}**: {valid_values[col]}")
+
+st.write("### Selected Features:")
+st.write(selected_features)
+
+st.write("---")
+st.write("## 📝 Input Data Pasien")
+
+# Create input fields using the actual valid values from label encoders
 age = st.number_input("Usia", min_value=0, max_value=120, value=25)
-gender = st.selectbox("Jenis Kelamin", ["Male", "Female"])
+
+# Gender
+gender_options = valid_values.get('Gender', ['Male', 'Female'])
+gender = st.selectbox("Jenis Kelamin", gender_options)
+
 height = st.number_input("Tinggi Badan (cm)", min_value=50.0, max_value=250.0, value=165.0)
 weight = st.number_input("Berat Badan (kg)", min_value=20.0, max_value=300.0, value=70.0)
-favc = st.selectbox("Sering konsumsi makanan berkalori tinggi? (FAVC)", ["Yes", "No"])
+
+# FAVC
+favc_options = valid_values.get('FAVC', ['Yes', 'No'])
+favc = st.selectbox("Sering konsumsi makanan berkalori tinggi? (FAVC)", favc_options)
+
 fcvc = st.number_input("Frekuensi konsumsi sayuran (FCVC)", min_value=1.0, max_value=3.0, value=2.0)
 ncp = st.number_input("Jumlah makan utama per hari (NCP)", min_value=1.0, max_value=4.0, value=3.0)
-family_history = st.selectbox("Riwayat keluarga dengan obesitas?", ["Yes", "No"])
-caec = st.selectbox("Konsumsi makanan antara waktu makan (CAEC)", ["Sometimes", "Frequently", "Always", "No"])
-mtrans = st.selectbox("Metode transportasi utama (MTRANS)", ["Public_Transportation", "Walking", "Automobile", "Motorbike", "Bike"])
+
+# Family history
+family_options = valid_values.get('family_history_with_overweight', ['Yes', 'No'])
+family_history = st.selectbox("Riwayat keluarga dengan obesitas?", family_options)
+
+# CAEC
+caec_options = valid_values.get('CAEC', ['Sometimes', 'Frequently', 'Always', 'No'])
+caec = st.selectbox("Konsumsi makanan antara waktu makan (CAEC)", caec_options)
+
+# MTRANS
+mtrans_options = valid_values.get('MTRANS', ['Public_Transportation', 'Walking', 'Automobile', 'Motorbike', 'Bike'])
+mtrans = st.selectbox("Metode transportasi utama (MTRANS)", mtrans_options)
+
 ch2o = st.number_input("Konsumsi air per hari (CH2O, liter)", min_value=0.0, max_value=5.0, value=2.0)
 faf = st.number_input("Frekuensi aktivitas fisik (FAF, hari/minggu)", min_value=0.0, max_value=7.0, value=3.0)
 tue = st.number_input("Waktu penggunaan teknologi (TUE, jam/hari)", min_value=0.0, max_value=24.0, value=2.0)
-calc = st.selectbox("Konsumsi alkohol (CALC)", ["No", "Sometimes", "Frequently", "Always"])
-scc = st.selectbox("Pemantauan kalori (SCC)", ["Yes", "No"])
-smoke = st.selectbox("Merokok? (SMOKE)", ["Yes", "No"])
 
-if st.button("Prediksi"):
+# CALC
+calc_options = valid_values.get('CALC', ['No', 'Sometimes', 'Frequently', 'Always'])
+calc = st.selectbox("Konsumsi alkohol (CALC)", calc_options)
+
+# SCC
+scc_options = valid_values.get('SCC', ['Yes', 'No'])
+scc = st.selectbox("Pemantauan kalori (SCC)", scc_options)
+
+# SMOKE
+smoke_options = valid_values.get('SMOKE', ['Yes', 'No'])
+smoke = st.selectbox("Merokok? (SMOKE)", smoke_options)
+
+if st.button("🔮 Prediksi"):
     try:
         # Prepare input data
         input_data = pd.DataFrame({
@@ -79,39 +135,67 @@ if st.button("Prediksi"):
             'SMOKE': [smoke]
         })
         
-        # Encode categorical variables with error handling
+        st.write("### 🔍 Debug: Input Data Before Encoding")
+        st.dataframe(input_data)
+        
+        # Encode categorical variables
         categorical_cols = ['Gender', 'CALC', 'FAVC', 'SCC', 'SMOKE', 'family_history_with_overweight', 'CAEC', 'MTRANS']
+        
         for col in categorical_cols:
             if col in label_encoders:
-                try:
-                    # Check if the value exists in the label encoder's classes
-                    input_value = input_data[col].iloc[0]
-                    if input_value not in label_encoders[col].classes_:
-                        st.error(f"Nilai '{input_value}' untuk kolom '{col}' tidak dikenali oleh model.")
-                        st.write(f"Nilai yang valid untuk {col}: {list(label_encoders[col].classes_)}")
-                        st.stop()
-                    input_data[col] = label_encoders[col].transform(input_data[col])
-                except Exception as e:
-                    st.error(f"Error encoding kolom {col}: {e}")
-                    st.write(f"Nilai yang valid untuk {col}: {list(label_encoders[col].classes_)}")
-                    st.stop()
+                input_value = input_data[col].iloc[0]
+                st.write(f"Encoding {col}: '{input_value}' -> ", end="")
+                input_data[col] = label_encoders[col].transform(input_data[col])
+                st.write(f"{input_data[col].iloc[0]}")
             else:
                 st.error(f"Label encoder untuk kolom {col} tidak ditemukan!")
                 st.stop()
         
-        # Select features and scale data
-        input_data = input_data[selected_features]
-        input_data_scaled = scaler.transform(input_data)
+        st.write("### 🔍 Debug: Input Data After Encoding")
+        st.dataframe(input_data)
+        
+        # Select features
+        if not all(feature in input_data.columns for feature in selected_features):
+            missing_features = [f for f in selected_features if f not in input_data.columns]
+            st.error(f"Missing features: {missing_features}")
+            st.stop()
+            
+        input_data_selected = input_data[selected_features]
+        st.write("### 🔍 Debug: Selected Features Data")
+        st.dataframe(input_data_selected)
+        
+        # Scale data
+        input_data_scaled = components['scaler'].transform(input_data_selected)
+        st.write("### 🔍 Debug: Scaled Data")
+        st.write(input_data_scaled)
         
         # Make prediction
-        prediction = model.predict(input_data_scaled)
-        prediction_label = le_target.inverse_transform(prediction)[0]
+        prediction = components['model'].predict(input_data_scaled)
+        prediction_proba = components['model'].predict_proba(input_data_scaled)
         
-        st.success(f"Prediksi Kategori Obesitas: **{prediction_label}**")
+        st.write("### 🔍 Debug: Raw Prediction")
+        st.write(f"Prediction: {prediction}")
+        st.write(f"Prediction Probabilities: {prediction_proba}")
+        
+        # Convert prediction to label
+        prediction_label = components['le_target'].inverse_transform(prediction)[0]
+        
+        st.success(f"## 🎯 Hasil Prediksi: **{prediction_label}**")
+        
+        # Show probabilities
+        class_labels = components['le_target'].classes_
+        prob_dict = {label: prob for label, prob in zip(class_labels, prediction_proba[0])}
+        
+        st.write("### 📊 Probabilitas untuk setiap kategori:")
+        for label, prob in prob_dict.items():
+            st.write(f"- **{label}**: {prob:.4f} ({prob*100:.2f}%)")
         
     except Exception as e:
-        st.error(f"Error saat melakukan prediksi: {e}")
-        st.write("Pastikan semua file model sudah tersedia dan format input benar.")
+        st.error(f"❌ Error saat melakukan prediksi: {e}")
+        st.write("**Debug info:**")
+        st.write(f"Error type: {type(e).__name__}")
+        import traceback
+        st.code(traceback.format_exc())
 
 st.write("---")
 st.write("**Performa Model (Setelah Tuning):**")

@@ -1,105 +1,85 @@
 import streamlit as st
 import pickle
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-# Import joblib
-try:
-    import joblib
-except ImportError:
-    from sklearn.externals import joblib
+# Load semua file pickle
+with open('random_forest_model_compressed.pkl', 'rb') as f:
+    model = pickle.load(f)
 
-# Load model dan komponen
-st.write("Memuat model...")
-try:
-    model = joblib.load('random_forest_model_compressed.pkl')
-    st.write("Model dimuat dengan sukses!")
-except Exception as e:
-    st.write(f"Error memuat model: {e}")
+with open('scaler.pkl', 'rb') as f:
+    scaler = pickle.load(f)
 
-try:
-    scaler = pickle.load(open('scaler.pkl', 'rb'))
-    label_encoders = pickle.load(open('label_encoders.pkl', 'rb'))
-    le_target = pickle.load(open('target_encoder.pkl', 'rb'))
-    selected_features = pickle.load(open('selected_features.pkl', 'rb'))
-    st.write("Semua komponen model berhasil dimuat!")
-except Exception as e:
-    st.error(f"Error memuat komponen model: {e}")
-    st.stop()
+with open('label_encoders.pkl', 'rb') as f:
+    label_encoders = pickle.load(f)
 
-st.title("Aplikasi Prediksi Kategori Obesitas")
-st.write("Masukkan data pasien untuk memprediksi kategori obesitas (Normal Weight, Overweight, Obesity).")
+with open('target_encoder.pkl', 'rb') as f:
+    target_encoder = pickle.load(f)
 
-st.header("Input Data Pasien")
+with open('selected_features.pkl', 'rb') as f:
+    selected_features = pickle.load(f)
 
-# Input
-age = st.number_input("Usia", min_value=0, max_value=120, value=25)
-gender = st.selectbox("Jenis Kelamin", ["Male", "Female"])
-height = st.number_input("Tinggi Badan (cm)", min_value=50.0, max_value=250.0, value=165.0)
-weight = st.number_input("Berat Badan (kg)", min_value=20.0, max_value=300.0, value=70.0)
-favc = st.selectbox("Sering konsumsi makanan berkalori tinggi? (FAVC)", ["Yes", "No"])
-fcvc = st.number_input("Frekuensi konsumsi sayuran (FCVC)", min_value=1.0, max_value=3.0, value=2.0)
-ncp = st.number_input("Jumlah makan utama per hari (NCP)", min_value=1.0, max_value=4.0, value=3.0)
-family_history = st.selectbox("Riwayat keluarga dengan obesitas?", ["Yes", "No"])
-caec = st.selectbox("Konsumsi makanan antara waktu makan (CAEC)", ["Sometimes", "Frequently", "Always", "No"])
-mtrans = st.selectbox("Metode transportasi utama (MTRANS)", ["Public_Transportation", "Walking", "Automobile", "Motorbike", "Bike"])
-ch2o = st.number_input("Konsumsi air per hari (CH2O, liter)", min_value=0.0, max_value=5.0, value=2.0)
-faf = st.number_input("Frekuensi aktivitas fisik (FAF, hari/minggu)", min_value=0.0, max_value=7.0, value=3.0)
-tue = st.number_input("Waktu penggunaan teknologi (TUE, jam/hari)", min_value=0.0, max_value=24.0, value=2.0)
-calc = st.selectbox("Konsumsi alkohol (CALC)", ["No", "Sometimes", "Frequently", "Always"])
-scc = st.selectbox("Pemantauan kalori (SCC)", ["Yes", "No"])
-smoke = st.selectbox("Merokok? (SMOKE)", ["Yes", "No"])
+# Judul aplikasi
+st.title("Prediksi Kategori Obesitas")
+st.write("Masukkan informasi pribadi untuk memprediksi kondisi obesitas berdasarkan model machine learning.")
 
+# Input dari pengguna
+def user_input():
+    age = st.slider("Umur", 10, 100, 25)
+    gender = st.selectbox("Jenis Kelamin", ["Male", "Female"])
+    height = st.number_input("Tinggi (meter)", min_value=1.0, max_value=2.5, value=1.7)
+    weight = st.number_input("Berat (kg)", min_value=30.0, max_value=200.0, value=70.0)
+    favc = st.selectbox("Apakah Anda sering mengonsumsi makanan tinggi kalori?", ["yes", "no"])
+    fcvc = st.slider("Frekuensi konsumsi sayur (1=jarang, 3=sering)", 1.0, 3.0, 2.0)
+    ncp = st.slider("Jumlah makanan utama per hari", 1.0, 4.0, 3.0)
+    fhwo = st.selectbox("Apakah ada riwayat keluarga dengan obesitas?", ["yes", "no"])
+    caec = st.selectbox("Frekuensi konsumsi makanan antara waktu makan utama", ["no", "Sometimes", "Frequently", "Always"])
+    mtrans = st.selectbox("Transportasi utama", ["Public_Transportation", "Walking", "Automobile", "Motorbike", "Bike"])
+
+    # Buat dictionary
+    user_data = {
+        'Age': age,
+        'Gender': gender,
+        'Height': height,
+        'Weight': weight,
+        'FAVC': favc,
+        'FCVC': fcvc,
+        'NCP': ncp,
+        'family_history_with_overweight': fhwo,
+        'CAEC': caec,
+        'MTRANS': mtrans
+    }
+    return pd.DataFrame([user_data])
+
+# Ambil input
+input_df = user_input()
+
+# Encode kolom kategorikal
+for col in label_encoders:
+    if col in input_df.columns:
+        input_df[col] = label_encoders[col].transform(input_df[col])
+
+# Pilih dan susun ulang fitur
+X_input = input_df[selected_features]
+
+# Skalakan data
+X_scaled = scaler.transform(X_input)
+
+# Prediksi
 if st.button("Prediksi"):
-    try:
-        # Susun data input
-        input_data = pd.DataFrame({
-            'Age': [age],
-            'Gender': [gender.lower()],
-            'Height': [height],
-            'Weight': [weight],
-            'FAVC': [favc.lower()],
-            'FCVC': [fcvc],
-            'NCP': [ncp],
-            'family_history_with_overweight': [family_history.lower()],
-            'CAEC': [caec.lower()],
-            'MTRANS': [mtrans.lower()],
-            'CH2O': [ch2o],
-            'FAF': [faf],
-            'TUE': [tue],
-            'CALC': [calc.lower()],
-            'SCC': [scc.lower()],
-            'SMOKE': [smoke.lower()]
-        })
+    pred = model.predict(X_scaled)
+    pred_label = target_encoder.inverse_transform(pred)[0]
+    st.success(f"Model memprediksi: **{pred_label}**")
 
-        # Transformasi label encoding
-        categorical_cols = ['Gender', 'CALC', 'FAVC', 'SCC', 'SMOKE', 'family_history_with_overweight', 'CAEC', 'MTRANS']
-        for col in categorical_cols:
-            if col in label_encoders:
-                input_value = input_data[col].iloc[0]
-                if input_value not in label_encoders[col].classes_:
-                    st.error(f"Nilai '{input_value}' untuk kolom '{col}' tidak dikenali oleh model.")
-                    st.write(f"Nilai yang valid: {list(label_encoders[col].classes_)}")
-                    st.stop()
-                input_data[col] = label_encoders[col].transform(input_data[col])
-            else:
-                st.error(f"Label encoder untuk '{col}' tidak ditemukan!")
-                st.stop()
+    # Opsional: tambahkan probabilitas jika model mendukung
+    if hasattr(model, "predict_proba"):
+        proba = model.predict_proba(X_scaled)[0]
+        proba_df = pd.DataFrame({
+            'Kategori': target_encoder.inverse_transform(np.arange(len(proba))),
+            'Probabilitas': proba
+        }).sort_values(by='Probabilitas', ascending=False)
+        st.subheader("Probabilitas Prediksi:")
+        st.bar_chart(proba_df.set_index('Kategori'))
 
-        # Seleksi fitur dan scaling
-        input_data = input_data[selected_features]
-        input_data_scaled = scaler.transform(input_data)
-
-        # Prediksi
-        prediction = model.predict(input_data_scaled)
-        prediction_label = le_target.inverse_transform(prediction)[0]
-
-        st.success(f"Prediksi Kategori Obesitas: **{prediction_label}**")
-
-    except Exception as e:
-        st.error(f"Error saat melakukan prediksi: {e}")
-        st.write("Pastikan semua file model tersedia dan input valid.")
-
-st.write("---")
-st.write("**Performa Model (Setelah Tuning):**")
-st.write("- Random Forest: Accuracy 94.5%, Precision 94.3%, Recall 94.3%, F1-Score 0.96")
+st.markdown("---")
+st.markdown("Model ini menggunakan Random Forest yang telah dioptimasi dengan RandomizedSearchCV.")

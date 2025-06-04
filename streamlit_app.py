@@ -24,6 +24,12 @@ try:
     le_target = pickle.load(open('target_encoder.pkl', 'rb'))
     selected_features = pickle.load(open('selected_features.pkl', 'rb'))
     st.write("Semua komponen model berhasil dimuat!")
+    
+    # Debug: Show valid values for each categorical column
+    st.write("**Debug: Nilai valid untuk setiap kategori:**")
+    for col, encoder in label_encoders.items():
+        st.write(f"- {col}: {list(encoder.classes_)}")
+        
 except Exception as e:
     st.error(f"Error memuat komponen model: {e}")
     st.stop()
@@ -73,11 +79,22 @@ if st.button("Prediksi"):
             'SMOKE': [smoke]
         })
         
-        # Encode categorical variables
+        # Encode categorical variables with error handling
         categorical_cols = ['Gender', 'CALC', 'FAVC', 'SCC', 'SMOKE', 'family_history_with_overweight', 'CAEC', 'MTRANS']
         for col in categorical_cols:
             if col in label_encoders:
-                input_data[col] = label_encoders[col].transform(input_data[col])
+                try:
+                    # Check if the value exists in the label encoder's classes
+                    input_value = input_data[col].iloc[0]
+                    if input_value not in label_encoders[col].classes_:
+                        st.error(f"Nilai '{input_value}' untuk kolom '{col}' tidak dikenali oleh model.")
+                        st.write(f"Nilai yang valid untuk {col}: {list(label_encoders[col].classes_)}")
+                        st.stop()
+                    input_data[col] = label_encoders[col].transform(input_data[col])
+                except Exception as e:
+                    st.error(f"Error encoding kolom {col}: {e}")
+                    st.write(f"Nilai yang valid untuk {col}: {list(label_encoders[col].classes_)}")
+                    st.stop()
             else:
                 st.error(f"Label encoder untuk kolom {col} tidak ditemukan!")
                 st.stop()

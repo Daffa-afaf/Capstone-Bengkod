@@ -24,12 +24,12 @@ try:
     le_target = pickle.load(open('target_encoder.pkl', 'rb'))
     selected_features = pickle.load(open('selected_features.pkl', 'rb'))
     st.write("Semua komponen model berhasil dimuat!")
-    
+
     # Debug: Show valid values for each categorical column
     st.write("**Debug: Nilai valid untuk setiap kategori:**")
     for col, encoder in label_encoders.items():
         st.write(f"- {col}: {list(encoder.classes_)}")
-        
+
 except Exception as e:
     st.error(f"Error memuat komponen model: {e}")
     st.stop()
@@ -39,9 +39,9 @@ st.write("Masukkan data pasien untuk memprediksi kategori obesitas (Normal Weigh
 
 st.header("Input Data Pasien")
 
-# Input fields
+# Input fields dengan pilihan 'yes' dan 'no' dalam huruf kecil
 age = st.number_input("Usia", min_value=0, max_value=120, value=25)
-gender = st.selectbox("Jenis Kelamin", ["Male", "Female"])
+gender = st.selectbox("Jenis Kelamin", ["male", "female"])
 height = st.number_input("Tinggi Badan (cm)", min_value=50.0, max_value=250.0, value=165.0)
 weight = st.number_input("Berat Badan (kg)", min_value=20.0, max_value=300.0, value=70.0)
 favc = st.selectbox("Sering konsumsi makanan berkalori tinggi? (FAVC)", ["yes", "no"])
@@ -55,7 +55,7 @@ faf = st.number_input("Frekuensi aktivitas fisik (FAF, hari/minggu)", min_value=
 tue = st.number_input("Waktu penggunaan teknologi (TUE, jam/hari)", min_value=0.0, max_value=24.0, value=2.0)
 calc = st.selectbox("Konsumsi alkohol (CALC)", ["No", "Sometimes", "Frequently", "Always"])
 scc = st.selectbox("Pemantauan kalori (SCC)", ["yes", "no"])
-smoke = st.selectbox("Merokok? (SMOKE)", ["Yes", "no"])
+smoke = st.selectbox("Merokok? (SMOKE)", ["yes", "no"])
 
 if st.button("Prediksi"):
     try:
@@ -78,13 +78,12 @@ if st.button("Prediksi"):
             'SCC': [scc],
             'SMOKE': [smoke]
         })
-        
+
         # Encode categorical variables with error handling
         categorical_cols = ['Gender', 'CALC', 'FAVC', 'SCC', 'SMOKE', 'family_history_with_overweight', 'CAEC', 'MTRANS']
         for col in categorical_cols:
             if col in label_encoders:
                 try:
-                    # Check if the value exists in the label encoder's classes
                     input_value = input_data[col].iloc[0]
                     if input_value not in label_encoders[col].classes_:
                         st.error(f"Nilai '{input_value}' untuk kolom '{col}' tidak dikenali oleh model.")
@@ -98,17 +97,17 @@ if st.button("Prediksi"):
             else:
                 st.error(f"Label encoder untuk kolom {col} tidak ditemukan!")
                 st.stop()
-        
+
         # Select features and scale data
         input_data = input_data[selected_features]
         input_data_scaled = scaler.transform(input_data)
-        
+
         # Make prediction
         prediction = model.predict(input_data_scaled)
         prediction_label = le_target.inverse_transform(prediction)[0]
-        
+
         st.success(f"Prediksi Kategori Obesitas: **{prediction_label}**")
-        
+
     except Exception as e:
         st.error(f"Error saat melakukan prediksi: {e}")
         st.write("Pastikan semua file model sudah tersedia dan format input benar.")

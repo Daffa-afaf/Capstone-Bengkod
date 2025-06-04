@@ -23,7 +23,7 @@ le_target = load_pickle("target_encoder.pkl")
 selected_features = load_pickle("selected_features.pkl")
 
 # --- UI Judul ---
-st.title("🧮 Aplikasi Prediksi Kategori Obesitas")
+st.title("Aplikasi Prediksi Kategori Obesitas")
 st.write("Masukkan data pasien untuk memprediksi kategori obesitas berdasarkan model Random Forest.")
 
 # --- Input Form ---
